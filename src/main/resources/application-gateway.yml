@@ -1,0 +1,27 @@
+spring:
+  main:
+    web-application-type: reactive
+  application:
+    name: finance-api-gateway
+  cloud:
+    gateway:
+      routes:
+        - id: finance-service
+          uri: ${FINANCE_SERVICE_URI:http://localhost:8081}
+          predicates:
+            - Path=/api/v1/accounts/**,/api/v1/transfers/**,/api/v1/transactions/**,/actuator/health
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: financeService
+                fallbackUri: forward:/fallback
+      httpclient:
+        connect-timeout: 2000
+        response-timeout: 5s
+server:
+  port: 8080
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,gateway

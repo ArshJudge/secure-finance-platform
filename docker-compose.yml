@@ -1,0 +1,37 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: finance
+      POSTGRES_USER: finance_app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    ports: ["5432:5432"]
+    volumes: [finance_data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finance_app -d finance"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+  finance-service:
+    build: .
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_URL: jdbc:postgresql://postgres:5432/finance
+      DB_USERNAME: finance_app
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      JWT_ISSUER_URI: ${JWT_ISSUER_URI:?Set JWT_ISSUER_URI in .env}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:?Set JWT_AUDIENCE in .env}
+    depends_on:
+      postgres: {condition: service_healthy}
+    ports: ["8081:8081"]
+  api-gateway:
+    build: .
+    command: ["java", "-jar", "/app/app.jar", "--spring.profiles.active=gateway"]
+    environment:
+      GATEWAY_JWT_ISSUER_URI: ${JWT_ISSUER_URI:?Set JWT_ISSUER_URI in .env}
+      GATEWAY_JWT_AUDIENCE: ${JWT_AUDIENCE:?Set JWT_AUDIENCE in .env}
+      FINANCE_SERVICE_URI: http://finance-service:8081
+    depends_on: [finance-service]
+    ports: ["8080:8080"]
+volumes:
+  finance_data:
